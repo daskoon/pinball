@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PINBALL (1984) - NES Arcade Player</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="arcade-cabinet">
+    <!-- Screen Column -->
+    <div id="cabinet-screen-col" style="display:flex; flex-direction:column; align-items:center;">
+        <!-- Main CRT Game Screen -->
+        <div id="screen-container">
+            <canvas id="gameCanvas" width="480" height="720"></canvas>
+            <div id="crt-overlay"></div>
+        </div>
+
+        <!-- On-screen Arcade Touch & Mouse Buttons -->
+        <div id="arcade-controls-bar">
+            <button class="arcade-flipper-btn" id="btn-touch-left"
+                onmousedown="nesRunner.setVirtualButton('leftFlipper', true); this.blur();"
+                onmouseup="nesRunner.setVirtualButton('leftFlipper', false); this.blur();"
+                onmouseleave="nesRunner.setVirtualButton('leftFlipper', false);"
+                ontouchstart="event.preventDefault(); nesRunner.setVirtualButton('leftFlipper', true);"
+                ontouchend="event.preventDefault(); nesRunner.setVirtualButton('leftFlipper', false);">
+                ◀ LEFT FLIPPER (Z/A/←)
+            </button>
+            <button class="arcade-plunger-btn" id="btn-touch-plunger"
+                onmousedown="nesRunner.setVirtualButton('plunger', true); this.blur();"
+                onmouseup="nesRunner.setVirtualButton('plunger', false); this.blur();"
+                onmouseleave="nesRunner.setVirtualButton('plunger', false);"
+                ontouchstart="event.preventDefault(); nesRunner.setVirtualButton('plunger', true);"
+                ontouchend="event.preventDefault(); nesRunner.setVirtualButton('plunger', false);">
+                ⚡ PULL &amp; RELEASE (SPACE/↓)
+            </button>
+            <button class="arcade-flipper-btn" id="btn-touch-right"
+                onmousedown="nesRunner.setVirtualButton('rightFlipper', true); this.blur();"
+                onmouseup="nesRunner.setVirtualButton('rightFlipper', false); this.blur();"
+                onmouseleave="nesRunner.setVirtualButton('rightFlipper', false);"
+                ontouchstart="event.preventDefault(); nesRunner.setVirtualButton('rightFlipper', true);"
+                ontouchend="event.preventDefault(); nesRunner.setVirtualButton('rightFlipper', false);">
+                RIGHT FLIPPER ▶ (/ /D/→)
+            </button>
+        </div>
+        <div id="arcade-system-bar">
+            <button class="arcade-sys-btn" id="btn-touch-start" onclick="nesRunner.pulseVirtualButton('start'); this.blur();">
+                ▶ START / ENTER
+            </button>
+            <button class="arcade-sys-btn" id="btn-touch-select" onclick="nesRunner.pulseVirtualButton('select'); this.blur();">
+                🔄 SELECT (GAME A/B)
+            </button>
+            <button class="arcade-sys-btn" id="btn-touch-reset" onclick="resetCurrentGame(); this.blur();">
+                ⏮ RESET TABLE
+            </button>
+        </div>
+    </div>
+
+    <!-- Side Arcade Dashboard & Xbox 360 Controller Status -->
+    <div id="side-panel">
+        <div class="badge-nes" id="active-engine-badge">SUPER MARIO PINBALL (ROM HACK)</div>
+
+        <!-- Engine Mode Switcher -->
+        <div class="panel-box" style="border-color: #f83800;">
+            <div class="panel-title" style="color: #f83800;">GAME ENGINE & ROM HACK</div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <button id="btn-engine-mario" class="retro-btn" style="background:#f83800; border-color:#fff;" onclick="switchEngine('MARIO_HACK')">
+                    1. SUPER MARIO BROS HACK (NES)
+                </button>
+                <button id="btn-engine-nes" class="retro-btn" onclick="switchEngine('NES_ORIGINAL')">
+                    2. 1984 PINBALL (ORIGINAL NES)
+                </button>
+                <button id="btn-engine-homage" class="retro-btn" onclick="switchEngine('HOMAGE')">
+                    3. CUSTOM CANVAS HOMAGE
+                </button>
+                <a href="Pinball_Mario_Hack.nes" download="Pinball_Mario_Hack.nes" style="text-decoration:none;">
+                    <button class="retro-btn" style="width:100%; background:#1a1a2e; border-color:#f8b800; color:#f8b800; font-size:10px; margin-top:4px;">
+                        📥 DOWNLOAD HACKED .NES ROM
+                    </button>
+                </a>
+                <button id="btn-open-studio" class="retro-btn" style="width:100%; background:#8000a0; border-color:#d800ff; color:#fff; font-size:10px; margin-top:6px; font-weight:bold;" onclick="if(window.tileStudio) window.tileStudio.open()">
+                    🎨 OPEN LIVE PIXEL & TILE STUDIO
+                </button>
+            </div>
+        </div>
+
+        <!-- Score & Status -->
+        <div class="panel-box">
+            <div class="panel-title">GAME STATUS</div>
+            <div class="score-row">
+                <span>SYSTEM:</span>
+                <span id="system-status-text" class="score-val" style="font-size:12px;">NES 2A03/2C02</span>
+            </div>
+            <div class="score-row">
+                <span>AUDIO:</span>
+                <span style="color:#00e800;">44.1kHz APU</span>
+            </div>
+            <div class="score-row">
+                <span>FPS:</span>
+                <span style="color:#f8b800;">60 FPS (NTSC)</span>
+            </div>
+        </div>
+
+        <!-- Xbox 360 Controller & Input Status -->
+        <div class="panel-box controller-box">
+            <div class="panel-title">XBOX 360 CONTROLLER</div>
+            <div id="ctrl-status-text" class="ctrl-status disconnected">
+                <span id="ctrl-indicator-dot" class="indicator-dot off"></span>
+                <span>DISCONNECTED</span>
+            </div>
+            <div id="ctrl-name-text" style="font-size:10px; color:#888; margin-bottom:8px;">
+                Connect Xbox Controller or use Keyboard
+            </div>
+
+            <div class="mapping-list">
+                <div class="mapping-item">
+                    <span class="mapping-key">LT / LB / Z / A / &larr;:</span>
+                    <span>Left Flipper</span>
+                </div>
+                <div class="mapping-item">
+                    <span class="mapping-key">RT / RB / / / D / &rarr;:</span>
+                    <span>Right Flipper</span>
+                </div>
+                <div class="mapping-item">
+                    <span class="mapping-key">SPACE / &darr; / A:</span>
+                    <span>Hold &amp; Release to Launch Plunger!</span>
+                </div>
+                <div class="mapping-item">
+                    <span class="mapping-key">STICK / D-PAD / KEYS:</span>
+                    <span>Mario Move (Bonus Stage)</span>
+                </div>
+                <div class="mapping-item">
+                    <span class="mapping-key">BACK / TAB:</span>
+                    <span>Select (Game A / B)</span>
+                </div>
+                <div class="mapping-item">
+                    <span class="mapping-key">START / ENTER:</span>
+                    <span>Start / Pause</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Super Mario Board Guide -->
+        <div class="panel-box">
+            <div class="panel-title" style="color:#f8b800;">SUPER MARIO HACK GUIDE</div>
+            <div style="font-size: 11px; color: #ccc; display:flex; flex-direction:column; gap:4px;">
+                <div>* <b>BALL &rarr; SPINY EGG:</b> Lakitu's authentic SMB1 spiky egg rolling &amp; ricocheting!</div>
+                <div>* <b>EGGS &rarr; KOOPA SHELLS:</b> Real SMB1 Koopa Shell sprites lined along Scene B!</div>
+                <div>* <b>CHICKS &rarr; PARATROOPAS:</b> Flapping winged Koopas with animated wings hatch on strike!</div>
+                <div>* <b>TITLE SCREEN:</b> Clean native NES "MARIO PINBALL" hardware title text!</div>
+                <div>* <b>BONUS STAGE:</b> Catch the ball with Mario's paddle to rescue Pauline / Peach!</div>
+            </div>
+        </div>
+
+        <!-- Retro Cabinet Toggles -->
+        <div class="panel-box toggles-box">
+            <div style="display:flex; gap:6px;">
+                <button id="btn-crt" class="retro-btn" style="flex:1;" onclick="toggleCRT()">CRT: ON</button>
+                <button class="retro-btn" style="flex:1;" onclick="resetCurrentGame()">RESET</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="js/jsnes.min.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/table.js"></script>
+<script src="js/gamepad.js"></script>
+<script src="js/game.js"></script>
+<script src="js/nes-runner.js"></script>
+<script src="js/tile-editor.js"></script>
+
+<script>
+    let currentEngine = 'MARIO_HACK'; // 'MARIO_HACK', 'NES_ORIGINAL', 'HOMAGE'
+
+    window.addEventListener('DOMContentLoaded', () => {
+        // Start NES Runner with Mario Hack by default
+        nesRunner.init('Pinball_Mario_Hack.nes');
+    });
+
+    function switchEngine(engine) {
+        if (document.activeElement) document.activeElement.blur();
+        currentEngine = engine;
+        const btnMario = document.getElementById('btn-engine-mario');
+        const btnNes = document.getElementById('btn-engine-nes');
+        const btnHomage = document.getElementById('btn-engine-homage');
+        const badge = document.getElementById('active-engine-badge');
+
+        [btnMario, btnNes, btnHomage].forEach(b => {
+            if (b) {
+                b.style.background = '#222';
+                b.style.borderColor = '#888';
+            }
+        });
+
+        if (engine === 'MARIO_HACK') {
+            btnMario.style.background = '#f83800';
+            btnMario.style.borderColor = '#fff';
+            badge.innerText = 'SUPER MARIO PINBALL (ROM HACK)';
+            badge.style.background = '#f83800';
+
+            if (window.game) window.game.stop();
+            nesRunner.switchRom('Pinball_Mario_Hack.nes');
+        } else if (engine === 'NES_ORIGINAL') {
+            btnNes.style.background = '#f83800';
+            btnNes.style.borderColor = '#fff';
+            badge.innerText = '1984 NES PINBALL (ORIGINAL)';
+            badge.style.background = '#0058f8';
+
+            if (window.game) window.game.stop();
+            nesRunner.switchRom('Pinball (Japan, USA).nes');
+        } else {
+            btnHomage.style.background = '#f83800';
+            btnHomage.style.borderColor = '#fff';
+            badge.innerText = 'CUSTOM CANVAS HOMAGE MODE';
+            badge.style.background = '#00a800';
+
+            nesRunner.stop();
+            if (window.game) {
+                window.game.start();
+                window.game.startNewGame();
+            }
+        }
+    }
+
+    function resetCurrentGame() {
+        if (document.activeElement) document.activeElement.blur();
+        if (currentEngine === 'MARIO_HACK') {
+            nesRunner.switchRom('Pinball_Mario_Hack.nes');
+        } else if (currentEngine === 'NES_ORIGINAL') {
+            nesRunner.switchRom('Pinball (Japan, USA).nes');
+        } else if (window.game) {
+            window.game.startNewGame();
+        }
+    }
+
+    function toggleCRT() {
+        if (document.activeElement) document.activeElement.blur();
+        const crt = document.getElementById('crt-overlay');
+        const btn = document.getElementById('btn-crt');
+        if (crt && btn) {
+            crt.classList.toggle('off');
+            btn.innerText = crt.classList.contains('off') ? 'CRT: OFF' : 'CRT: ON';
+        }
+    }
+</script>
+
+</body>
+</html>
